@@ -1,4 +1,51 @@
 # OnPushTagReleaseJarTest
 [![EasySpigotAPI](https://img.shields.io/badge/EasySpigotAPI-%E2%AC%85-4D4.svg)](https://github.com/sya-ri/EasySpigotAPI)
 
-バージョンタグをプッシュした際に、リリースを作成し、shadowJar で生成されたファイルをアーティファクトに追加するテスト
+バージョンタグをプッシュした際に、リリースを作成し、shadowJar で生成されたファイルをアーティファクトに追加する
+
+## .github/workflows/release-jar.yml
+```yml
+name: "Create Release"
+on:
+  push:
+    tags:
+      - "v*"
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Cache
+        uses: actions/cache@v2
+        with:
+          path: ~/.gradle/caches
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}
+      - name: Set up JDK 11
+        uses: actions/setup-java@v1
+        with:
+          java-version: 11
+      - name: Build with Gradle
+        run: ./gradlew shadowJar
+      - name: Add JarFile Path to Environment Variable
+        run: echo "JAR_FILE_NAME=`ls build/libs`" >> $GITHUB_ENV
+      - name: Create Release
+        uses: actions/create-release@master
+        id: create_release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: true
+      - name: Upload Jar
+        uses: actions/upload-release-asset@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: build/libs/${{ env.JAR_FILE_NAME }}
+          asset_name: ${{ env.JAR_FILE_NAME }}
+          asset_content_type: application/java-archive
+
+```
